@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(page_title="Desa Smart Database", layout="wide")
+st.set_page_config(page_title="Database Warga Desa", layout="wide")
 
 # =========================
-# LOAD DATA SAFE
+# SAFE LOAD DATA
 # =========================
 def load_data(file, columns):
     try:
@@ -18,6 +18,29 @@ def load_data(file, columns):
         df = pd.DataFrame(columns=columns)
         df.to_csv(file, index=False)
         return df
+
+
+# =========================
+# VALIDATOR 16 DIGIT
+# =========================
+def validate_16digit(value):
+    value = str(value).strip()
+    return value.isdigit() and len(value) == 16
+
+
+# =========================
+# HIGHLIGHT INVALID DATA
+# =========================
+def highlight_kk(row):
+    if len(str(row["No_KK"])) != 16:
+        return ["background-color:#ffcccc"] * len(row)
+    return [""] * len(row)
+
+
+def highlight_nik(row):
+    if len(str(row["NIK"])) != 16:
+        return ["background-color:#ffcccc"] * len(row)
+    return [""] * len(row)
 
 
 # =========================
@@ -35,36 +58,29 @@ df_nik = load_data("data_nik.csv", [
 
 
 # =========================
-# VALIDATOR 16 DIGIT
-# =========================
-def validate_16(value):
-    value = str(value).strip()
-    return value.isdigit() and len(value) == 16
-
-
-# =========================
-# SIDEBAR MENU
+# MENU
 # =========================
 menu = st.sidebar.selectbox(
     "Menu",
-    ["Input KK", "Input NIK", "Data KK", "Data NIK", "Export & Delete"]
+    ["Input KK", "Input NIK", "Data KK", "Data NIK", "Export Data"]
 )
+
 
 # =========================
 # INPUT KK
 # =========================
 if menu == "Input KK":
-    st.title("🟦 Input KK")
+    st.title("🟦 Input Data KK")
 
     no_kk = st.text_input("No KK (16 digit)")
-    
+
     if no_kk:
         if not no_kk.isdigit():
-            st.error("❌ Harus angka semua")
+            st.error("Harus angka semua")
         elif len(no_kk) != 16:
-            st.warning(f"⚠️ Panjang: {len(no_kk)} (harus 16)")
+            st.warning(f"Panjang: {len(no_kk)} (harus 16)")
         else:
-            st.success("✔ No KK valid")
+            st.success("Valid ✔")
 
     nama_kk = st.text_input("Nama Kepala Keluarga")
     rt = st.text_input("RT")
@@ -76,7 +92,7 @@ if menu == "Input KK":
     bantuan = st.selectbox("Bantuan", ["Tidak Ada", "PKH", "BPNT", "BLT"])
 
     if st.button("Simpan KK"):
-        if not validate_16(no_kk):
+        if not validate_16digit(no_kk):
             st.error("No KK harus 16 digit angka")
         else:
             df_kk.loc[len(df_kk)] = [
@@ -91,7 +107,7 @@ if menu == "Input KK":
 # INPUT NIK
 # =========================
 elif menu == "Input NIK":
-    st.title("🟨 Input NIK")
+    st.title("🟨 Input Data NIK")
 
     if df_kk.empty:
         st.warning("Isi KK dulu")
@@ -102,11 +118,11 @@ elif menu == "Input NIK":
 
         if nik:
             if not nik.isdigit():
-                st.error("❌ Harus angka semua")
+                st.error("Harus angka semua")
             elif len(nik) != 16:
-                st.warning(f"⚠️ Panjang: {len(nik)} (harus 16)")
+                st.warning(f"Panjang: {len(nik)} (harus 16)")
             else:
-                st.success("✔ NIK valid")
+                st.success("Valid ✔")
 
         nama = st.text_input("Nama")
         jk = st.selectbox("JK", ["L", "P"])
@@ -120,7 +136,7 @@ elif menu == "Input NIK":
         disabilitas = st.selectbox("Disabilitas", ["Tidak","Ya"])
 
         if st.button("Simpan NIK"):
-            if not validate_16(nik):
+            if not validate_16digit(nik):
                 st.error("NIK harus 16 digit angka")
             else:
                 df_nik.loc[len(df_nik)] = [
@@ -133,48 +149,56 @@ elif menu == "Input NIK":
 
 
 # =========================
-# DATA KK
+# VIEW KK + DELETE + HIGHLIGHT
 # =========================
 elif menu == "Data KK":
     st.title("📊 Data KK")
-    st.dataframe(df_kk, use_container_width=True)
+
+    st.dataframe(
+        df_kk.style.apply(highlight_kk, axis=1),
+        use_container_width=True
+    )
+
+    st.subheader("🗑️ Hapus KK")
+
+    if not df_kk.empty:
+        selected = st.selectbox("Pilih No KK", df_kk["No_KK"])
+
+        if st.button("Hapus KK"):
+            df_kk = df_kk[df_kk["No_KK"] != selected]
+            df_kk.to_csv("data_kk.csv", index=False)
+            st.success("KK dihapus")
+            st.rerun()
 
 
 # =========================
-# DATA NIK + HIGHLIGHT + DELETE
+# VIEW NIK + DELETE + HIGHLIGHT
 # =========================
 elif menu == "Data NIK":
     st.title("📊 Data NIK")
 
-    def highlight(row):
-        if len(str(row["NIK"])) != 16:
-            return ["background-color: red"] * len(row)
-        return [""] * len(row)
+    st.dataframe(
+        df_nik.style.apply(highlight_nik, axis=1),
+        use_container_width=True
+    )
 
-    st.dataframe(df_nik.style.apply(highlight, axis=1), use_container_width=True)
-
-
-# =========================
-# EXPORT + DELETE
-# =========================
-elif menu == "Export & Delete":
-    st.title("📦 Export & Delete Data")
-
-    st.subheader("Delete Data NIK")
+    st.subheader("🗑️ Hapus NIK")
 
     if not df_nik.empty:
-        selected = st.selectbox("Pilih NIK untuk dihapus", df_nik["NIK"])
+        selected = st.selectbox("Pilih NIK", df_nik["NIK"])
 
-        if st.button("Hapus"):
+        if st.button("Hapus NIK"):
             df_nik = df_nik[df_nik["NIK"] != selected]
             df_nik.to_csv("data_nik.csv", index=False)
-            st.success("Data berhasil dihapus")
-    else:
-        st.info("Belum ada data")
+            st.success("NIK dihapus")
+            st.rerun()
 
-    st.divider()
 
-    st.subheader("Export Excel")
+# =========================
+# EXPORT EXCEL
+# =========================
+elif menu == "Export Data":
+    st.title("📦 Export Excel")
 
     if st.button("Generate Excel"):
         file = "database_desa.xlsx"
@@ -184,4 +208,8 @@ elif menu == "Export & Delete":
             df_nik.to_excel(writer, sheet_name="NIK", index=False)
 
         with open(file, "rb") as f:
-            st.download_button("Download Excel", f, file_name=file)
+            st.download_button(
+                "Download Excel",
+                f,
+                file_name=file
+            )
