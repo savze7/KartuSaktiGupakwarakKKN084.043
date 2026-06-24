@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(page_title="Database Warga Desa", layout="wide")
+st.set_page_config(page_title="Desa Smart Database", layout="wide")
 
 # =========================
-# LOAD DATA (ANTI ERROR + AUTO INIT)
+# LOAD DATA SAFE
 # =========================
 def load_data(file, columns):
     try:
@@ -13,28 +13,11 @@ def load_data(file, columns):
             df = pd.DataFrame(columns=columns)
             df.to_csv(file, index=False)
             return df
-
         return pd.read_csv(file)
-
-    except pd.errors.EmptyDataError:
+    except:
         df = pd.DataFrame(columns=columns)
         df.to_csv(file, index=False)
         return df
-
-
-# =========================
-# VALIDATOR 16 DIGIT
-# =========================
-def validate_16digit(value, label):
-    value = str(value).strip()
-
-    if not value.isdigit():
-        return False, f"{label} harus angka semua"
-
-    if len(value) != 16:
-        return False, f"{label} harus tepat 16 digit"
-
-    return True, value
 
 
 # =========================
@@ -52,114 +35,105 @@ df_nik = load_data("data_nik.csv", [
 
 
 # =========================
+# VALIDATOR 16 DIGIT
+# =========================
+def validate_16(value):
+    value = str(value).strip()
+    return value.isdigit() and len(value) == 16
+
+
+# =========================
 # SIDEBAR MENU
 # =========================
 menu = st.sidebar.selectbox(
     "Menu",
-    ["Input KK", "Input NIK", "Data KK", "Data NIK", "Export Data"]
+    ["Input KK", "Input NIK", "Data KK", "Data NIK", "Export & Delete"]
 )
-
 
 # =========================
 # INPUT KK
 # =========================
 if menu == "Input KK":
-    st.title("🟦 Input Data KK")
+    st.title("🟦 Input KK")
 
-    with st.form("form_kk"):
-        no_kk = st.text_input("No KK (16 digit)")
-        nama_kk = st.text_input("Nama Kepala Keluarga")
-        rt = st.text_input("RT")
-        rw = st.text_input("RW")
-        dusun = st.text_input("Dusun")
+    no_kk = st.text_input("No KK (16 digit)")
+    
+    if no_kk:
+        if not no_kk.isdigit():
+            st.error("❌ Harus angka semua")
+        elif len(no_kk) != 16:
+            st.warning(f"⚠️ Panjang: {len(no_kk)} (harus 16)")
+        else:
+            st.success("✔ No KK valid")
 
-        status_rumah = st.selectbox("Status Rumah", ["Milik", "Kontrak", "Menumpang"])
-        kondisi_rumah = st.selectbox("Kondisi Rumah", ["Layak", "Tidak Layak"])
-        bantuan = st.selectbox("Bantuan", ["Tidak Ada", "PKH", "BPNT", "BLT"])
+    nama_kk = st.text_input("Nama Kepala Keluarga")
+    rt = st.text_input("RT")
+    rw = st.text_input("RW")
+    dusun = st.text_input("Dusun")
 
-        submit = st.form_submit_button("Simpan KK")
+    status_rumah = st.selectbox("Status Rumah", ["Milik", "Kontrak", "Menumpang"])
+    kondisi_rumah = st.selectbox("Kondisi Rumah", ["Layak", "Tidak Layak"])
+    bantuan = st.selectbox("Bantuan", ["Tidak Ada", "PKH", "BPNT", "BLT"])
 
-        if submit:
-            valid, result = validate_16digit(no_kk, "No KK")
-
-            if not valid:
-                st.error(result)
-            else:
-                new_data = pd.DataFrame([{
-                    "No_KK": result,
-                    "Nama_KK": nama_kk,
-                    "RT": rt,
-                    "RW": rw,
-                    "Dusun": dusun,
-                    "Status_Rumah": status_rumah,
-                    "Kondisi_Rumah": kondisi_rumah,
-                    "Bantuan": bantuan
-                }])
-
-                df_kk = pd.concat([df_kk, new_data], ignore_index=True)
-                df_kk.to_csv("data_kk.csv", index=False)
-                st.success("Data KK berhasil disimpan!")
+    if st.button("Simpan KK"):
+        if not validate_16(no_kk):
+            st.error("No KK harus 16 digit angka")
+        else:
+            df_kk.loc[len(df_kk)] = [
+                no_kk, nama_kk, rt, rw, dusun,
+                status_rumah, kondisi_rumah, bantuan
+            ]
+            df_kk.to_csv("data_kk.csv", index=False)
+            st.success("KK berhasil disimpan")
 
 
 # =========================
 # INPUT NIK
 # =========================
 elif menu == "Input NIK":
-    st.title("🟨 Input Data Anggota (NIK)")
+    st.title("🟨 Input NIK")
 
     if df_kk.empty:
-        st.warning("Isi data KK dulu!")
+        st.warning("Isi KK dulu")
     else:
-        with st.form("form_nik"):
-            no_kk = st.selectbox("Pilih No KK", df_kk["No_KK"].unique())
+        no_kk = st.selectbox("Pilih KK", df_kk["No_KK"].unique())
 
-            nik = st.text_input("NIK (16 digit)")
-            nama = st.text_input("Nama")
+        nik = st.text_input("NIK (16 digit)")
 
-            jk = st.selectbox("Jenis Kelamin", ["L", "P"])
-            umur = st.number_input("Umur", 0, 120)
+        if nik:
+            if not nik.isdigit():
+                st.error("❌ Harus angka semua")
+            elif len(nik) != 16:
+                st.warning(f"⚠️ Panjang: {len(nik)} (harus 16)")
+            else:
+                st.success("✔ NIK valid")
 
-            hubungan = st.selectbox("Hubungan", [
-                "Kepala Keluarga", "Istri", "Anak", "Lainnya"
-            ])
+        nama = st.text_input("Nama")
+        jk = st.selectbox("JK", ["L", "P"])
+        umur = st.number_input("Umur", 0, 120)
 
-            pendidikan = st.selectbox("Pendidikan", [
-                "Tidak Sekolah", "SD", "SMP", "SMA", "Kuliah"
-            ])
+        hubungan = st.selectbox("Hubungan", ["Kepala Keluarga","Istri","Anak","Lainnya"])
+        pendidikan = st.selectbox("Pendidikan", ["Tidak Sekolah","SD","SMP","SMA","Kuliah"])
+        pekerjaan = st.text_input("Pekerjaan")
 
-            pekerjaan = st.text_input("Pekerjaan")
+        bpjs = st.selectbox("BPJS", ["Aktif","Tidak"])
+        disabilitas = st.selectbox("Disabilitas", ["Tidak","Ya"])
 
-            bpjs = st.selectbox("BPJS", ["Aktif", "Tidak"])
-            disabilitas = st.selectbox("Disabilitas", ["Tidak", "Ya"])
-
-            submit = st.form_submit_button("Simpan NIK")
-
-            if submit:
-                valid, result = validate_16digit(nik, "NIK")
-
-                if not valid:
-                    st.error(result)
-                else:
-                    new_data = pd.DataFrame([{
-                        "No_KK": no_kk,
-                        "NIK": result,
-                        "Nama": nama,
-                        "JK": jk,
-                        "Umur": umur,
-                        "Hubungan": hubungan,
-                        "Pendidikan": pendidikan,
-                        "Pekerjaan": pekerjaan,
-                        "BPJS": bpjs,
-                        "Disabilitas": disabilitas
-                    }])
-
-                    df_nik = pd.concat([df_nik, new_data], ignore_index=True)
-                    df_nik.to_csv("data_nik.csv", index=False)
-                    st.success("Data NIK berhasil disimpan!")
+        if st.button("Simpan NIK"):
+            if not validate_16(nik):
+                st.error("NIK harus 16 digit angka")
+            else:
+                df_nik.loc[len(df_nik)] = [
+                    no_kk, nik, nama, jk, umur,
+                    hubungan, pendidikan, pekerjaan,
+                    bpjs, disabilitas
+                ]
+                df_nik.to_csv("data_nik.csv", index=False)
+                st.success("NIK berhasil disimpan")
 
 
 # =========================
-# VIEW DATA KK
+# DATA KK
 # =========================
 elif menu == "Data KK":
     st.title("📊 Data KK")
@@ -167,29 +141,47 @@ elif menu == "Data KK":
 
 
 # =========================
-# VIEW DATA NIK
+# DATA NIK + HIGHLIGHT + DELETE
 # =========================
 elif menu == "Data NIK":
     st.title("📊 Data NIK")
-    st.dataframe(df_nik, use_container_width=True)
+
+    def highlight(row):
+        if len(str(row["NIK"])) != 16:
+            return ["background-color: red"] * len(row)
+        return [""] * len(row)
+
+    st.dataframe(df_nik.style.apply(highlight, axis=1), use_container_width=True)
 
 
 # =========================
-# EXPORT EXCEL
+# EXPORT + DELETE
 # =========================
-elif menu == "Export Data":
-    st.title("📦 Export Data")
+elif menu == "Export & Delete":
+    st.title("📦 Export & Delete Data")
+
+    st.subheader("Delete Data NIK")
+
+    if not df_nik.empty:
+        selected = st.selectbox("Pilih NIK untuk dihapus", df_nik["NIK"])
+
+        if st.button("Hapus"):
+            df_nik = df_nik[df_nik["NIK"] != selected]
+            df_nik.to_csv("data_nik.csv", index=False)
+            st.success("Data berhasil dihapus")
+    else:
+        st.info("Belum ada data")
+
+    st.divider()
+
+    st.subheader("Export Excel")
 
     if st.button("Generate Excel"):
-        file_name = "database_desa.xlsx"
+        file = "database_desa.xlsx"
 
-        with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
+        with pd.ExcelWriter(file, engine="openpyxl") as writer:
             df_kk.to_excel(writer, sheet_name="KK", index=False)
             df_nik.to_excel(writer, sheet_name="NIK", index=False)
 
-        with open(file_name, "rb") as f:
-            st.download_button(
-                "Download Excel",
-                f,
-                file_name=file_name
-            )
+        with open(file, "rb") as f:
+            st.download_button("Download Excel", f, file_name=file)
